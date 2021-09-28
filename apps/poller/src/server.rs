@@ -34,7 +34,7 @@ impl Greeter for MyGreeter {
 // Runtime to run our server
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:50051".parse()?;
+    let addr = "0.0.0.0:2424".parse()?;
     let greeter = MyGreeter::default();
 
     println!("Starting gRPC Server...");
