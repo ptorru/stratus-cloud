@@ -3,20 +3,48 @@ use tonic::{transport::Server, Request, Response, Status};
 use greeter::greeter_server::{Greeter, GreeterServer};
 use greeter::{HelloResponse, HelloRequest};
 
+use bme280::BME280;
+
 use linux_embedded_hal as hal;
 
 
 use embedded_graphics::{
-    mono_font::{ascii::FONT_10X20, MonoTextStyleBuilder},
+    mono_font::{ascii::FONT_4X6, ascii::FONT_10X20, MonoTextStyleBuilder},
     pixelcolor::BinaryColor,
     prelude::*,
-    primitives::{Circle, PrimitiveStyleBuilder, Rectangle, Triangle},
+    primitives::{Circle, PrimitiveStyleBuilder, Rectangle},
     text::{Baseline, Text},
 };
-use hal::I2cdev;
-//use embedded_graphics::fonts::Font6x8;
+use hal::{Delay, I2cdev};
+
 use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
 
+struct Data {
+    temp: f32,
+    pres: f32,
+    humi: f32,
+}
+
+fn get_data() -> Data {
+
+    // using Linux I2C Bus #1 in this example
+    let i2c_bus = I2cdev::new("/dev/i2c-1").unwrap();
+
+    // initialize the BME280 using the primary I2C address 0x76
+    let mut bme280 = BME280::new_primary(i2c_bus, Delay);
+
+    // initialize the sensor
+    bme280.init().unwrap();
+
+    // measure temperature, pressure, and humidity
+    let measurements = bme280.measure().unwrap();
+
+    Data {
+        temp: measurements.temperature,
+        pres: measurements.pressure,
+        humi: measurements.humidity,
+    }
+}
 
 fn draw_screen<S>(msg: S)
 where
@@ -48,26 +76,42 @@ where
         .text_color(BinaryColor::On)
         .build();
 
-    // square
-    Rectangle::new(Point::new(52, yoffset), Size::new_equal(16))
-        .into_styled(style)
-        .draw(&mut disp)
-        .unwrap();
-
-    // circle
-    Circle::new(Point::new(88, yoffset), 16)
-        .into_styled(style)
-        .draw(&mut disp)
-        .unwrap();
+    let text_style2 = MonoTextStyleBuilder::new()
+    .font(&FONT_4X6)
+    .text_color(BinaryColor::On)
+    .build();
 
     Text::with_baseline(
-        &format!("Msg Pi2! {}", msg.as_ref().to_string()),
-        Point::new(20, 40),
+        &format!("Tp Pr Hu"),
+        Point::new(20, yoffset),
         text_style,
         Baseline::Top,
     )
     .draw(&mut disp)
     .unwrap();
+
+    Text::with_baseline(
+        &format!("{}", msg.as_ref().to_string()),
+        Point::new(yoffset, yoffset + 20),
+        text_style2,
+        Baseline::Top,
+    )
+    .draw(&mut disp)
+    .unwrap();
+
+    // square
+    Rectangle::new(Point::new(52, yoffset + 40), Size::new_equal(16))
+        .into_styled(style)
+        .draw(&mut disp)
+        .unwrap();
+
+    // circle
+    Circle::new(Point::new(88, yoffset + 40), 16)
+        .into_styled(style)
+        .draw(&mut disp)
+        .unwrap();
+
+
 
     disp.flush().unwrap();
 
@@ -96,7 +140,8 @@ impl Greeter for MyGreeter {
         println!("Received request from: {:?}", request);
 
         // Add here the code to read from the sensor
-        draw_screen(3.to_string());
+        let amb_data = get_data();
+        draw_screen(format!("{} {} {}", amb_data.temp, amb_data.pres, amb_data.humi));
 
         let response = greeter::HelloResponse {
             message: format!("Hello {}!", request.into_inner().name).into(),

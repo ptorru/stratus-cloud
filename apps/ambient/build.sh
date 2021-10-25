@@ -23,5 +23,6 @@ then
         echo "Running..."
         ssh $PIUSR@$IPADD "./helloworld-server"
         echo "Return code (should be 0): $?"
+        ssh $PIUSR@$IPADD 'kill $(pgrep -f "./helloworld-server")'
     fi
 fi
