@@ -9,10 +9,10 @@ use linux_embedded_hal as hal;
 
 
 use embedded_graphics::{
-    mono_font::{ascii::FONT_4X6, ascii::FONT_10X20, MonoTextStyleBuilder},
+    mono_font::{ascii::FONT_6X13, ascii::FONT_4X6, ascii::FONT_9X15_BOLD, MonoTextStyleBuilder},
     pixelcolor::BinaryColor,
     prelude::*,
-    primitives::{Circle, PrimitiveStyleBuilder, Rectangle},
+    primitives::{Circle, PrimitiveStyleBuilder, Rectangle, Triangle},
     text::{Baseline, Text},
 };
 use hal::{Delay, I2cdev};
@@ -46,7 +46,7 @@ fn get_data() -> Data {
     }
 }
 
-fn draw_screen<S>(msg: S)
+fn draw_screen<S>(msg: S, data: &Data)
 where
     S: AsRef<str>,
 {
@@ -57,7 +57,8 @@ where
         .into_buffered_graphics_mode();
     disp.init().unwrap();
 
-    let yoffset = 4;
+    let offset = 4;
+    let xoffset = 100;
     let style = PrimitiveStyleBuilder::new()
         .stroke_width(1)
         .stroke_color(BinaryColor::On)
@@ -71,46 +72,69 @@ where
         .draw(&mut disp)
         .unwrap();
 
-    let text_style = MonoTextStyleBuilder::new()
-        .font(&FONT_10X20)
+    let text_title = MonoTextStyleBuilder::new()
+        .font(&FONT_9X15_BOLD)
         .text_color(BinaryColor::On)
         .build();
 
-    let text_style2 = MonoTextStyleBuilder::new()
-    .font(&FONT_4X6)
-    .text_color(BinaryColor::On)
-    .build();
+    let text_mid = MonoTextStyleBuilder::new()
+        .font(&FONT_6X13)
+        .text_color(BinaryColor::On)
+        .build();
+
+    let text_small = MonoTextStyleBuilder::new()
+        .font(&FONT_4X6)
+        .text_color(BinaryColor::On)
+        .build();
 
     Text::with_baseline(
-        &format!("Tp Pr Hu"),
-        Point::new(20, yoffset),
-        text_style,
+        &format!("{}", msg.as_ref()),
+        Point::new(offset, offset),
+        text_small,
         Baseline::Top,
     )
     .draw(&mut disp)
     .unwrap();
 
     Text::with_baseline(
-        &format!("{}", msg.as_ref().to_string()),
-        Point::new(yoffset, yoffset + 20),
-        text_style2,
+        &format!("Tp\nPr\nHu"),
+        Point::new(offset, 14),
+        text_title,
         Baseline::Top,
     )
     .draw(&mut disp)
     .unwrap();
 
-    // square
-    Rectangle::new(Point::new(52, yoffset + 40), Size::new_equal(16))
-        .into_styled(style)
-        .draw(&mut disp)
-        .unwrap();
+    Text::with_baseline(
+        &format!("{}\n{}\n{}", data.temp, data.pres, data.humi),
+        Point::new(offset+22, offset+14),
+        text_mid,
+        Baseline::Top,
+    )
+    .draw(&mut disp)
+    .unwrap();
 
     // circle
-    Circle::new(Point::new(88, yoffset + 40), 16)
+    Circle::new(Point::new(xoffset, offset), 16)
         .into_styled(style)
         .draw(&mut disp)
         .unwrap();
 
+    // square
+    Rectangle::new(Point::new(xoffset, offset + 18), Size::new_equal(16))
+    .into_styled(style)
+    .draw(&mut disp)
+    .unwrap();
+
+    // triangle
+    Triangle::new(
+        Point::new(xoffset, 16 + offset + 37),
+        Point::new(xoffset + 16, 16 + offset + 37),
+        Point::new(xoffset + 8, offset + 37),
+    )
+    .into_styled(style)
+    .draw(&mut disp)
+    .unwrap();
 
 
     disp.flush().unwrap();
@@ -126,7 +150,6 @@ pub mod greeter {
 // defined in the proto
 #[derive(Debug, Default)]
 pub struct MyGreeter {
-    number: i8,
 }
 
 // Implement the service function(s) defined in the proto
@@ -141,10 +164,14 @@ impl Greeter for MyGreeter {
 
         // Add here the code to read from the sensor
         let amb_data = get_data();
-        draw_screen(format!("{} {} {}", amb_data.temp, amb_data.pres, amb_data.humi));
+        let message = request.into_inner();
+        draw_screen(format!("{:?}", message.name), &amb_data);
 
         let response = greeter::HelloResponse {
-            message: format!("Hello {}!", request.into_inner().name).into(),
+            message: format!("Hello {}!", message.name).into(),
+            temp: amb_data.temp,
+            pres: amb_data.pres,
+            humi: amb_data.humi,
         };
 
         Ok(Response::new(response))

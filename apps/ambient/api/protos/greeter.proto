@@ -7,6 +7,9 @@ message HelloRequest {
 
 message HelloResponse {
   string message = 1;
+  float temp = 2;
+  float pres = 3;
+  float humi = 4;
 }
 
 service Greeter {
