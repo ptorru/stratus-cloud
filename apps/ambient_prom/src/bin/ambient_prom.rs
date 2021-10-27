@@ -7,8 +7,42 @@ use env_logger::{
 };
 use log::info;
 use prometheus_exporter::prometheus::register_gauge;
-use rand::Rng;
+
 use std::net::SocketAddr;
+
+use linux_embedded_hal as hal;
+
+use hal::{Delay, I2cdev};
+
+use bme280::BME280;
+
+struct Data {
+    temp: f32,
+    pres: f32,
+    humi: f32,
+}
+
+fn get_data() -> Data {
+
+    // using Linux I2C Bus #1 in this example
+    let i2c_bus = I2cdev::new("/dev/i2c-1").unwrap();
+
+    // initialize the BME280 using the primary I2C address 0x76
+    let mut bme280 = BME280::new_primary(i2c_bus, Delay);
+
+    // initialize the sensor
+    bme280.init().unwrap();
+
+    // measure temperature, pressure, and humidity
+    let measurements = bme280.measure().unwrap();
+
+    Data {
+        temp: measurements.temperature,
+        pres: measurements.pressure,
+        humi: measurements.humidity,
+    }
+}
+
 
 fn main() {
     // Setup logger with default level info so we can see the messages from
@@ -21,13 +55,16 @@ fn main() {
 
     // Start exporter and update metrics every five seconds.
     let exporter = prometheus_exporter::start(addr).expect("can not start exporter");
-    let duration = std::time::Duration::from_millis(1000);
+    let duration = std::time::Duration::from_millis(15000);
 
     // Create metric
-    let random = register_gauge!("run_and_repeat_random", "will set a random value")
-        .expect("can not create gauge random_value_metric");
+    let gtemp = register_gauge!("temp", "Temperature value")
+        .expect("can not create gauge temp");
+    let gpres = register_gauge!("pres", "Pressure value")
+        .expect("can not create gauge pres");
+    let ghumi = register_gauge!("humi", "Rel. Humidity value")
+        .expect("can not create gauge humi");
 
-    let mut rng = rand::thread_rng();
 
     loop {
         {
@@ -36,11 +73,14 @@ fn main() {
 
             info!("Updating metrics");
 
-            // Update metric with random value.
-            let new_value = rng.gen();
-            info!("New random value: {}", new_value);
-
-            random.set(new_value);
+            let data = get_data();
+            /*
+            let temp = data.temp;
+            let pres = data.pres;
+            let humi = data.humi;*/
+            gtemp.set(data.temp.into());
+            gpres.set(data.pres.into());
+            ghumi.set(data.humi.into());
         }
 
         // Get metrics from exporter
