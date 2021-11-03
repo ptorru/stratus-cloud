@@ -1,10 +1,7 @@
 // Will create an exporter with a single metric that will randomize the value
 // of the metric everytime the exporter duration times out.
 
-use env_logger::{
-    Builder,
-    Env,
-};
+use env_logger::{Builder, Env};
 use log::info;
 use prometheus_exporter::prometheus::register_gauge;
 
@@ -23,7 +20,6 @@ struct Data {
 }
 
 fn get_data() -> Data {
-
     // using Linux I2C Bus #1 in this example
     let i2c_bus = I2cdev::new("/dev/i2c-1").unwrap();
 
@@ -43,7 +39,6 @@ fn get_data() -> Data {
     }
 }
 
-
 fn main() {
     // Setup logger with default level info so we can see the messages from
     // prometheus_exporter.
@@ -58,13 +53,9 @@ fn main() {
     let duration = std::time::Duration::from_millis(15000);
 
     // Create metric
-    let gtemp = register_gauge!("temp", "Temperature value")
-        .expect("can not create gauge temp");
-    let gpres = register_gauge!("pres", "Pressure value")
-        .expect("can not create gauge pres");
-    let ghumi = register_gauge!("humi", "Rel. Humidity value")
-        .expect("can not create gauge humi");
-
+    let gtemp = register_gauge!("temp", "Temperature value").expect("can not create gauge temp");
+    let gpres = register_gauge!("pres", "Pressure value").expect("can not create gauge pres");
+    let ghumi = register_gauge!("humi", "Rel. Humidity value").expect("can not create gauge humi");
 
     loop {
         {
